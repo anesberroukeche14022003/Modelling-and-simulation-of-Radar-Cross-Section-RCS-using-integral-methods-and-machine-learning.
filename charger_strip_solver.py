@@ -180,7 +180,7 @@ def solve_TM_strip_procedural(L=3.0, freq=1e9, phi_i=np.pi/2, N=300, save_dir=No
         }
     }
     
-    print("✓ Resolution terminee avec succes")
+    print("Resolution terminee avec succes")
     return results
 
 def plot_TM_strip_results(results, save_dir=None):
@@ -294,7 +294,7 @@ def save_TM_strip_results(results, save_dir=None):
         f.write("  Eq. 5.8: J_po = (2/η)sin(φⁱ)e^{jkx cos(φⁱ)}\n")
         f.write("  Eq. 5.7: E_z^s(ρ) = -ωμ√(j/(8πk))(e^{-jkρ}/√ρ)∫J_z(x')e^{jkx'cos(φˢ)}dx'\n")
     
-    print("✓ Sauvegarde terminee")
+    print("Sauvegarde terminee")
 
 # ============================================================================
 # DÉMONSTRATION PRINCIPALE
@@ -375,4 +375,5 @@ if __name__ == "__main__":
     print("  TM_strip_broadside_L3.0lambda_N100/")
     print("  TM_strip_oblique_L3.0lambda_N100/")
     print("  TM_strip_small_strip_L1.0lambda_N50/")
+
     print("=" * 70)
