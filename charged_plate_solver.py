@@ -282,7 +282,7 @@ def save_plate_results(results, save_dir=None):
         f.write("  Eq. 3.22: Z_mm = (2a/pi epsilon_0) * log(1 + sqrt(2))  (terme self)\n")
         f.write("  Eq. 3.23: Z_mn ≈ A/(4pi epsilon_0 |r_m - r_n|)  (termes near)\n")
     
-    print("✓ Sauvegarde terminee")
+    print("Sauvegarde terminee")
 
 # ============================================================================
 # DÉMONSTRATION PRINCIPALE - VERSION AMÉLIORÉE
@@ -345,3 +345,4 @@ if __name__ == "__main__":
     print("  plate_40_patches/")
 
     print("=" * 70)
+
