@@ -171,7 +171,7 @@ def solve_charged_plate_procedural(L=1.0, N=30, save_dir=None):
         }
     }
     
-    print("✓ Resolution terminee avec succes")
+    print("Resolution terminee avec succes")
     return results
 
 def plot_plate_results(results, save_dir=None):
@@ -343,4 +343,5 @@ if __name__ == "__main__":
     print("  plate_20_patches/")
     print("  plate_30_patches/")
     print("  plate_40_patches/")
+
     print("=" * 70)
