@@ -161,7 +161,7 @@ def solve_charged_wire_procedural(L=1.0, a=1e-3, N=200, method='implicit', save_
         }
     }
     
-    print("✓ Resolution terminee avec succes")
+    print("Resolution terminee avec succes")
     return results
 
 def plot_wire_results(results, save_dir=None):
@@ -330,7 +330,7 @@ def save_wire_results(results, save_dir=None):
         f.write("  Eq. 3.14: Z_mn = log[(x_b-x_m+sqrt((x_b-x_m)^2+a^2))/(x_a-x_m+sqrt((x_a-x_m)^2+a^2))]\n")
         f.write("  Eq. 3.15: Structure Toeplitz de la matrice Z\n")
     
-    print("✓ Sauvegarde terminee")
+    print("Sauvegarde terminee")
 
 # ============================================================================
 # DÉMONSTRATION PRINCIPALE - VERSION AMÉLIORÉE
@@ -378,7 +378,7 @@ def demonstrate_wire_procedural():
         save_wire_results(results, save_dir=save_dir)
         
         all_results[N] = results
-        print(f"✓ Simulation N={N} terminée - Erreur RMS: {error_rms:.6f} V")
+        print(f"Simulation N={N} terminée - Erreur RMS: {error_rms:.6f} V")
     
     return all_results
 
@@ -435,4 +435,5 @@ if __name__ == "__main__":
     print("  wire_500_segments/")
     print("  wire_50_segments_implicit/")
     print("  wire_100_segments_explicit/")
+
     print("=" * 70)
