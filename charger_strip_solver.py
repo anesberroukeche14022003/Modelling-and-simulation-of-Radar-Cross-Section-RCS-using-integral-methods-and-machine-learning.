@@ -93,7 +93,7 @@ def compute_excitation_vector(E_z_i, omega, mu):
     """
     return (4 / (omega * mu)) * E_z_i
 
-def solve_TM_strip_procedural(L=3.0, freq=1e9, phi_i=np.pi/2, N=300, save_dir=None):
+def solve_TM_strip_procedural(L=3.0, freq=1e9, phi_i=np.pi/2, N=500, save_dir=None):
     """
     Résout le problème du strip TM - Approche procédurale [Section 5.1.1 Gibson]
     
@@ -101,7 +101,7 @@ def solve_TM_strip_procedural(L=3.0, freq=1e9, phi_i=np.pi/2, N=300, save_dir=No
     L: float - Longueur du strip (en longueurs d'onde)
     freq: float - Fréquence (Hz)
     phi_i: float - Angle d'incidence (radians)
-    N: int - Nombre de segments
+    N: int - Nombre de segments (augmenté pour meilleure convergence)
     save_dir: str - Dossier de sauvegarde
     """
     # Paramètres physiques
@@ -149,18 +149,27 @@ def solve_TM_strip_procedural(L=3.0, freq=1e9, phi_i=np.pi/2, N=300, save_dir=No
     J_po = (2 / eta) * np.sin(phi_i) * E_z_i
     
     # ============================================================================
-    # ÉTAPE 5: CALCUL DE LA SER [Éq. 5.7]
+    # ÉTAPE 5: CALCUL DE LA SER POUR MoM ET PO [CORRIGÉ SELON LES COMMENTAIRES]
     # ============================================================================
-    print("4. Calcul de la SER...")
+    print("4. Calcul de la SER (MoM et PO)...")
     phi_s = np.linspace(0, np.pi, 181)
-    SER = np.zeros_like(phi_s, dtype=complex)
+    SER_mom = np.zeros_like(phi_s, dtype=complex)
+    SER_po = np.zeros_like(phi_s, dtype=complex)
     
     for i, phi in enumerate(phi_s):
-        integrand = J_z * np.exp(1j * k * x_centers * np.cos(phi))
-        integral = np.sum(integrand) * delta_x
-        SER[i] = -omega * mu_0 * np.sqrt(1j/(8*np.pi*k)) * integral
+        # SER MoM (comme avant)
+        integrand_mom = J_z * np.exp(1j * k * x_centers * np.cos(phi))
+        integral_mom = np.sum(integrand_mom) * delta_x
+        SER_mom[i] = -omega * mu_0 * np.sqrt(1j/(8*np.pi*k)) * integral_mom
+        
+        # SER PO (MÊME TRAITEMENT QUE MoM mais avec J_po)
+        integrand_po = J_po * np.exp(1j * k * x_centers * np.cos(phi))
+        integral_po = np.sum(integrand_po) * delta_x
+        SER_po[i] = -omega * mu_0 * np.sqrt(1j/(8*np.pi*k)) * integral_po
     
-    SER_dB = 10 * np.log10(4 * np.pi * np.abs(SER)**2)
+    # CORRECTION : facteur 2*pi au lieu de 4*pi pour le 2D
+    SER_mom_dB = 10 * np.log10(2 * np.pi * np.abs(SER_mom)**2)
+    SER_po_dB = 10 * np.log10(2 * np.pi * np.abs(SER_po)**2)
     
     # Structure des résultats
     results = {
@@ -170,7 +179,8 @@ def solve_TM_strip_procedural(L=3.0, freq=1e9, phi_i=np.pi/2, N=300, save_dir=No
         'b': b,                        # Vecteur d'excitation
         'x_centers': x_centers,        # Positions (m)
         'x_lambda': x_centers/lambda_, # Positions (λ)
-        'SER': SER_dB,                 # SER en dB
+        'SER_mom': SER_mom_dB,         # SER MoM en dB (2*pi)
+        'SER_po': SER_po_dB,           # SER PO en dB (2*pi)
         'phi_s': np.degrees(phi_s),    # Angles de diffusion (degrés)
         'params': {
             'L': L, 'L_meters': L_meters, 'freq': freq, 'lambda': lambda_,
@@ -230,14 +240,9 @@ def plot_TM_strip_results(results, save_dir=None):
     print("Generation de la SER [Figure 5.2b]...")
     plt.figure(figsize=(10, 6))
     
-    # Calcul de la SER PO pour comparaison
-    phi_i = results['params']['phi_i']
-    J_po_constant = (2 / results['params']['eta']) * np.sin(phi_i)
-    SER_po = np.full_like(results['phi_s'], 
-                        10*np.log10(np.abs(J_po_constant * results['params']['L_meters'])**2))
-    
-    plt.plot(results['phi_s'], results['SER'], 'b-', linewidth=2, label='EFIE MoM')
-    plt.plot(results['phi_s'], SER_po, 'r--', linewidth=2, label='Physical Optics')
+    # CORRECTION : Utilisation des SER calculées avec le même traitement
+    plt.plot(results['phi_s'], results['SER_mom'], 'b-', linewidth=2, label='EFIE MoM')
+    plt.plot(results['phi_s'], results['SER_po'], 'r--', linewidth=2, label='Physical Optics')
     plt.xlabel('Angle de diffusion φ (degrés)')
     plt.ylabel('SER (dB)')
     plt.title(f'SER Monostatique - Strip TM\nL = {results["params"]["L"]}λ, φⁱ = {results["params"]["phi_i_deg"]:.1f}°')
@@ -264,7 +269,8 @@ def save_TM_strip_results(results, save_dir=None):
     np.save(f"{save_dir}/J_z.npy", results['J_z'])
     np.save(f"{save_dir}/J_po.npy", results['J_po'])
     np.save(f"{save_dir}/x_centers.npy", results['x_centers'])
-    np.save(f"{save_dir}/SER.npy", results['SER'])
+    np.save(f"{save_dir}/SER_mom.npy", results['SER_mom'])
+    np.save(f"{save_dir}/SER_po.npy", results['SER_po'])
     np.save(f"{save_dir}/phi_s.npy", results['phi_s'])
     
     # Sauvegarde des paramètres
@@ -292,12 +298,17 @@ def save_TM_strip_results(results, save_dir=None):
         f.write("  Eq. 5.16: Z_mn = Δ_x[1 - j(1/π)(3log(3γkΔ_x/4)-log(γkΔ_x/4)-2)]\n")
         f.write("  Eq. 5.11: Z_mn ≈ Δ_x H₀⁽²⁾(k|x_m-x_n|) (far terms)\n")
         f.write("  Eq. 5.8: J_po = (2/η)sin(φⁱ)e^{jkx cos(φⁱ)}\n")
-        f.write("  Eq. 5.7: E_z^s(ρ) = -ωμ√(j/(8πk))(e^{-jkρ}/√ρ)∫J_z(x')e^{jkx'cos(φˢ)}dx'\n")
+        f.write("  Eq. 5.7: E_z^s(ρ) = -ωμ√(j/(8πk))(e^{-jkρ}/√ρ)∫J_z(x')e^{jkx'cos(φˢ)}dx'\n\n")
+        
+        f.write("CORRECTIONS APPLIQUÉES:\n")
+        f.write("  - SER PO calculée avec la même intégration que MoM\n")
+        f.write("  - Facteur 2*π utilisé au lieu de 4*π pour le 2D\n")
+        f.write("  - N augmenté à 500 segments pour meilleure convergence\n")
     
     print("Sauvegarde terminee")
 
 # ============================================================================
-# DÉMONSTRATION PRINCIPALE
+# DÉMONSTRATION PRINCIPALE (N AUGMENTÉ)
 # ============================================================================
 def demonstrate_TM_strip_procedural():
     """
@@ -305,15 +316,15 @@ def demonstrate_TM_strip_procedural():
     [Section 5.1.1 Gibson - TM Strip Example]
     """
     print("=" * 70)
-    print("DEMONSTRATION - STRIP TM")
+    print("DEMONSTRATION - STRIP TM (Convergence améliorée)")
     print("Reference: Gibson Chapter 5, Section 5.1.1")
     print("=" * 70)
     
-    # Paramètres de simulation
+    # Paramètres de simulation avec N augmenté
     configurations = [
-        {'L': 3.0, 'phi_i': np.pi/2, 'N': 100, 'label': 'broadside'},
-        {'L': 3.0, 'phi_i': np.pi/4, 'N': 100, 'label': 'oblique'},
-        {'L': 1.0, 'phi_i': np.pi/2, 'N': 50, 'label': 'small_strip'}
+        {'L': 3.0, 'phi_i': np.pi/2, 'N': 500, 'label': 'broadside'},
+        {'L': 3.0, 'phi_i': np.pi/4, 'N': 500, 'label': 'oblique'},
+        {'L': 1.0, 'phi_i': np.pi/2, 'N': 300, 'label': 'small_strip'}
     ]
     
     all_results = {}
@@ -341,39 +352,126 @@ def demonstrate_TM_strip_procedural():
     return all_results
 
 # ============================================================================
-# ANALYSE COMPARATIVE
+# ANALYSE COMPARATIVE DE CONVERGENCE (CORRIGÉE)
 # ============================================================================
-def compare_TM_strip_methods():
+def compare_TM_strip_convergence():
     """
-    Compare différentes résolutions pour le strip TM
+    Compare différentes résolutions pour le strip TM (analyse de convergence)
     """
     print("\n" + "=" * 70)
-    print("COMPARAISON DES RESOLUTIONS")
+    print("ANALYSE DE CONVERGENCE")
     print("=" * 70)
     
-    N_values = [50, 100, 200]
+    # 1. D'abord, calculer la référence (N=500)
+    print("\n--- Calcul de la référence (N=500) ---")
+    save_dir_ref = "TM_strip_convergence_ref_N500"
+    start_time = time.time()
+    results_ref = solve_TM_strip_procedural(L=3.0, N=500, save_dir=save_dir_ref)
+    ref_time = time.time() - start_time
+    reference = results_ref['SER_mom']
+    
+    convergence_results = {
+        500: {
+            'time': ref_time,
+            'condition': np.linalg.cond(results_ref['Z']),
+            'SER_max': np.max(results_ref['SER_mom']),
+            'error': 0.0  # Pas d'erreur pour la référence
+        }
+    }
+    
+    print(f"Temps de calcul référence: {ref_time:.2f} s")
+    print(f"Conditionnement de Z (référence): {np.linalg.cond(results_ref['Z']):.2e}")
+    
+    # 2. Ensuite, calculer les autres résolutions et comparer
+    N_values = [100, 200, 300, 400]
     
     for N in N_values:
         print(f"\n--- N = {N} segments ---")
         
-        save_dir = f"TM_strip_comparison_N{N}"
+        save_dir = f"TM_strip_convergence_N{N}"
         
         start_time = time.time()
         results = solve_TM_strip_procedural(L=3.0, N=N, save_dir=save_dir)
         computation_time = time.time() - start_time
         
+        # Interpolation pour comparer aux mêmes angles
+        SER_current = results['SER_mom']
+        error = np.mean(np.abs(SER_current - reference))
+        
+        convergence_results[N] = {
+            'time': computation_time,
+            'condition': np.linalg.cond(results['Z']),
+            'SER_max': np.max(results['SER_mom']),
+            'error': error
+        }
+        
         print(f"Temps de calcul: {computation_time:.2f} s")
         print(f"Conditionnement de Z: {np.linalg.cond(results['Z']):.2e}")
+        print(f"Erreur relative: {error:.4f} dB")
+    
+    # 3. Graphique de convergence
+    print("\n--- Graphique de convergence ---")
+    N_list = sorted(convergence_results.keys())
+    errors = [convergence_results[N]['error'] for N in N_list]
+    times = [convergence_results[N]['time'] for N in N_list]
+    conditions = [convergence_results[N]['condition'] for N in N_list]
+    
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
+    
+    # Graphique erreur vs N
+    ax1.semilogy(N_list[:-1], errors[:-1], 'bo-', linewidth=2, markersize=8)
+    ax1.set_xlabel('Nombre de segments N')
+    ax1.set_ylabel('Erreur RMS (dB) - échelle log')
+    ax1.set_title('Convergence de la SER')
+    ax1.grid(True, alpha=0.3, which='both')
+    
+    # Graphique temps vs N
+    ax2.plot(N_list, times, 'ro-', linewidth=2, markersize=8)
+    ax2.set_xlabel('Nombre de segments N')
+    ax2.set_ylabel('Temps de calcul (s)')
+    ax2.set_title('Coût computationnel')
+    ax2.grid(True, alpha=0.3)
+    
+    # Graphique conditionnement vs N
+    ax3.semilogy(N_list, conditions, 'go-', linewidth=2, markersize=8)
+    ax3.set_xlabel('Nombre de segments N')
+    ax3.set_ylabel('Conditionnement - échelle log')
+    ax3.set_title('Conditionnement de la matrice Z')
+    ax3.grid(True, alpha=0.3, which='both')
+    
+    plt.tight_layout()
+    plt.savefig("TM_strip_convergence_analysis.png", dpi=300, bbox_inches='tight')
+    plt.show()
+    
+    # 4. Affichage du tableau de convergence
+    print("\n" + "=" * 70)
+    print("TABLEAU DE CONVERGENCE")
+    print("=" * 70)
+    print(f"{'N':<8} {'Temps (s)':<12} {'Conditionnement':<18} {'Erreur (dB)':<12} {'SER_max (dB)':<12}")
+    print("-" * 70)
+    
+    for N in sorted(convergence_results.keys()):
+        res = convergence_results[N]
+        print(f"{N:<8} {res['time']:<12.2f} {res['condition']:<18.2e} {res['error']:<12.4f} {res['SER_max']:<12.2f}")
+    
+    return convergence_results
 
 if __name__ == "__main__":
     # Démonstration principale [Chapter 5, Section 5.1.1]
     results = demonstrate_TM_strip_procedural()
     
+    # Analyse de convergence
+    convergence = compare_TM_strip_convergence()
+    
     print("\n" + "=" * 70)
     print("ANALYSE TERMINEE - TOUS LES RESULTATS SAUVEGARDES")
     print("Structure des dossiers créés:")
-    print("  TM_strip_broadside_L3.0lambda_N100/")
-    print("  TM_strip_oblique_L3.0lambda_N100/")
-    print("  TM_strip_small_strip_L1.0lambda_N50/")
-
+    print("  TM_strip_broadside_L3.0lambda_N500/")
+    print("  TM_strip_oblique_L3.0lambda_N500/")
+    print("  TM_strip_small_strip_L1.0lambda_N300/")
+    print("  TM_strip_convergence_ref_N500/")
+    print("  TM_strip_convergence_N100/")
+    print("  TM_strip_convergence_N200/")
+    print("  TM_strip_convergence_N300/")
+    print("  TM_strip_convergence_N400/")
     print("=" * 70)
